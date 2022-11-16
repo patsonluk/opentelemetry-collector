@@ -1,15 +1,22 @@
 https://opentelemetry.io/docs/collector/getting-started/#local
 
 ### Setup
+This should build the OT collector and start it:
 ```
 git clone https://github.com/patsonluk/opentelemetry-collector.git
 cd opentelemetry-collector
 make install-tools
 make otelcorecol
-FS_APP_KEY="<FS staging API key>" ./bin/otelcorecol_* --config ./examples/local/otel-config.yaml
+FS_APP_KEY="<FS staging API key>" FS_API_HOST="http://127.0.0.1:9071" ./bin/otelcorecol_* --config ./examples/local/otel-config.yaml
 ```
 
-This should build the OT collector and start it
+`FS_APP_KEY` is required. This is the app/api key generated from FS UI under your account
+`FS_API_HOST` is optional. If left blank, then it will send server events to FS staging. Otherwise the example above is for FS local dev.
+
+For local dev env, you would also want to enable server event by editing `$FS_HOME/etc/localdev/featureflags.yaml` add entry `customhouse-enable-send-custom-events: true`
+
+To enable OT HTTP request/response header recording, you might need to enable from FS UI `Settings->Data Capture->Network Data Capture`
+
 
 Evetually we will have a proper instrumented front-end page and instrumented backend that send traces to this collector.
 
