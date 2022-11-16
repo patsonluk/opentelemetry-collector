@@ -43,8 +43,17 @@ type loggingExporter struct {
 }
 
 var (
-	appKey = os.Getenv("FS_APP_KEY")
+	appKey  = os.Getenv("FS_APP_KEY")
+	apiHost = getFsApiHost()
 )
+
+func getFsApiHost() string {
+	host := os.Getenv("FS_API_HOST")
+	if host == "" {
+		host = "api.staging.fullstory.com"
+	}
+	return host
+}
 
 func (s *loggingExporter) pushTraces(ctx context.Context, td ptrace.Traces) error {
 	s.logger.Info("TracesExporter", zap.Int("#spans", td.SpanCount()))
@@ -103,7 +112,7 @@ func (s *loggingExporter) exportFsServerEvent(span ptrace.Span) error {
 		printRed("cannot extract uid/session_url from the tracestate %s", span.TraceState())
 		return nil
 	}
-	url := fmt.Sprintf("https://api.staging.fullstory.com/users/v1/individual/%s/customevent", url2.QueryEscape(uid))
+	url := fmt.Sprintf("https://%s/users/v1/individual/%s/customevent", apiHost, url2.QueryEscape(uid))
 
 	printRed("URL will be %s\n", url)
 
@@ -129,6 +138,10 @@ func postServerEvent(url string, req []byte) error {
 
 	client := &http.Client{}
 	response, error := client.Do(request)
+	if error != nil {
+		println(fmt.Sprintf("Error posting to API URL %s : %s\n", url, error.Error()))
+		return error
+	}
 	defer response.Body.Close()
 
 	fmt.Println("FS response Status:", response.Status)
@@ -143,15 +156,18 @@ func convertSpanIntoEventReqs(span ptrace.Span, sessionUrl string) ([][]byte, er
 	var reqJsons []map[string]interface{}
 
 	//eventName := fmt.Sprintf("OT span - ts %d", now)
-	eventName := "OT span"
+	eventName := getSpanName(span)
 
 	//attributes := span.Attributes()
-	reqJsons = append(reqJsons, createBasicJson(eventName, sessionUrl, span))
+	reqJsons = append(reqJsons, createJsonFromSpan(eventName, sessionUrl, span))
 	//TODO log as events
+	for i := 0; i < span.Events().Len(); i++ {
+		reqJsons = append(reqJsons, createJsonFromSpanEvent(sessionUrl, span.Events().At(i), span.TraceID().HexString(), span.ParentSpanID().HexString()))
+	}
 
 	//endName := fmt.Sprintf("OT end - ts %d", now)
 	//
-	//reqJsons = append(reqJsons, createBasicJson(endName, sessionUrl, span))
+	//reqJsons = append(reqJsons, createJsonFromSpan(endName, sessionUrl, span))
 
 	var result [][]byte
 	for _, reqJson := range reqJsons {
@@ -165,7 +181,23 @@ func convertSpanIntoEventReqs(span ptrace.Span, sessionUrl string) ([][]byte, er
 	return result, nil
 }
 
-func createBasicJson(eventName string, sessionUrl string, span ptrace.Span) map[string]interface{} {
+func getSpanName(span ptrace.Span) string {
+	//https://github.com/open-telemetry/opentelemetry-specification/tree/main/specification/trace/semantic_conventions
+	if _, isDb := span.Attributes().Get("db.system"); isDb {
+		return "Database Span"
+	} else if _, isHttpServer := span.Attributes().Get("http.target"); isHttpServer {
+		return "HTTP Server Span"
+	} else if _, isHttpClient := span.Attributes().Get("http.method"); isHttpClient {
+		return "HTTP Client Span"
+	} else if rpcSystem, isRpcSystem := span.Attributes().Get("rpc.system"); isRpcSystem {
+		return rpcSystem.Str() + " Span"
+	} else {
+		return "OT " + span.Kind().String() + " Span"
+	}
+
+}
+
+func createJsonFromSpan(eventName string, sessionUrl string, span ptrace.Span) map[string]interface{} {
 	var reqJson = make(map[string]interface{})
 	eventJson := make(map[string]interface{})
 
@@ -199,6 +231,43 @@ func createBasicJson(eventName string, sessionUrl string, span ptrace.Span) map[
 	dataMap["end_date"] = endTs
 	dataMap["trace_id_str"] = span.TraceID().HexString()
 	dataMap["parent_id_str"] = span.ParentSpanID().HexString()
+
+	eventJson["event_data"] = dataMap
+
+	return reqJson
+}
+
+func createJsonFromSpanEvent(sessionUrl string, spanEvent ptrace.SpanEvent, traceId string, parentId string) map[string]interface{} {
+	var reqJson = make(map[string]interface{})
+	eventJson := make(map[string]interface{})
+
+	ts := spanEvent.Timestamp().AsTime().Format("2006-01-02T15:04:05.000Z")
+	attributes := spanEvent.Attributes()
+
+	reqJson["event"] = eventJson
+
+	eventJson["event_name"] = fmt.Sprintf("OT Event %s", spanEvent.Name())
+
+	//printRed("timestamp is %s\n", timestamp)
+	//eventJson["timestamp"] = timestamp
+	eventJson["session_url"] = sessionUrl
+
+	dataMap := make(map[string]interface{})
+
+	attributes.Range(func(key string, value pcommon.Value) bool {
+		if value.Type() == pcommon.ValueTypeStr {
+			dataMap[key+"_str"] = value.Str()
+		} else if value.Type() == pcommon.ValueTypeInt {
+			dataMap[key+"_int"] = value.Int()
+		} else {
+			printRed("Unhandled span attribute type %v", value.Type())
+		}
+		return true
+	})
+
+	dataMap["timestamp_date"] = ts
+	dataMap["trace_id_str"] = traceId
+	dataMap["parent_id_str"] = parentId
 
 	eventJson["event_data"] = dataMap
 
