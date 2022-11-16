@@ -158,7 +158,7 @@ func convertSpanIntoEventReqs(span ptrace.Span, sessionUrl string) ([][]byte, er
 	var reqJsons []map[string]interface{}
 
 	//eventName := fmt.Sprintf("OT span - ts %d", now)
-	eventName := getSpanName(span)
+	eventName := "OTel Span"
 
 	//attributes := span.Attributes()
 	reqJsons = append(reqJsons, createJsonFromSpan(eventName, sessionUrl, span))
@@ -183,18 +183,18 @@ func convertSpanIntoEventReqs(span ptrace.Span, sessionUrl string) ([][]byte, er
 	return result, nil
 }
 
-func getSpanName(span ptrace.Span) string {
+func getSpanType(span ptrace.Span) string {
 	//https://github.com/open-telemetry/opentelemetry-specification/tree/main/specification/trace/semantic_conventions
 	if _, isDb := span.Attributes().Get("db.system"); isDb {
-		return "Database Span"
+		return "database"
 	} else if _, isHttpServer := span.Attributes().Get("http.target"); isHttpServer {
-		return "HTTP Server Span"
+		return "http-server"
 	} else if _, isHttpClient := span.Attributes().Get("http.method"); isHttpClient {
-		return "HTTP Client Span"
+		return "http-client"
 	} else if rpcSystem, isRpcSystem := span.Attributes().Get("rpc.system"); isRpcSystem {
-		return rpcSystem.Str() + " Span"
+		return rpcSystem.Str()
 	} else {
-		return "OT " + span.Kind().String() + " Span"
+		return "unknown"
 	}
 
 }
@@ -233,6 +233,7 @@ func createJsonFromSpan(eventName string, sessionUrl string, span ptrace.Span) m
 	dataMap["end_date"] = endTs
 	dataMap["trace_id_str"] = span.TraceID().HexString()
 	dataMap["parent_id_str"] = span.ParentSpanID().HexString()
+	dataMap["span_type_str"] = getSpanType(span)
 
 	eventJson["event_data"] = dataMap
 
