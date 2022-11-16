@@ -50,7 +50,7 @@ var (
 func getFsApiHost() string {
 	host := os.Getenv("FS_API_HOST")
 	if host == "" {
-		host = "api.staging.fullstory.com"
+		host = "https://api.staging.fullstory.com"
 	}
 	return host
 }
@@ -100,7 +100,7 @@ const colorRed = "\033[0;31m"
 const colorNone = "\033[0m"
 
 func printRed(format string, args ...any) {
-	s := fmt.Sprintf(format, args)
+	s := fmt.Sprintf(format, args...)
 	fmt.Printf("%s%s%s\n", colorRed, s, colorNone)
 }
 
@@ -112,9 +112,7 @@ func (s *loggingExporter) exportFsServerEvent(span ptrace.Span) error {
 		printRed("cannot extract uid/session_url from the tracestate %s", span.TraceState())
 		return nil
 	}
-	url := fmt.Sprintf("https://%s/users/v1/individual/%s/customevent", apiHost, url2.QueryEscape(uid))
-
-	printRed("URL will be %s\n", url)
+	url := fmt.Sprintf("%s/users/v1/individual/%s/customevent", apiHost, url2.QueryEscape(uid))
 
 	reqs, err := convertSpanIntoEventReqs(span, sessionUrl)
 	if err != nil {
@@ -122,7 +120,10 @@ func (s *loggingExporter) exportFsServerEvent(span ptrace.Span) error {
 		return nil
 	}
 	for _, req := range reqs {
-		postServerEvent(url, req)
+		err := postServerEvent(url, req)
+		if err != nil {
+			printRed("Failed to post event : " + err.Error())
+		}
 	}
 	return nil
 }
@@ -136,6 +137,7 @@ func postServerEvent(url string, req []byte) error {
 	request.Header.Set("Content-Type", "application/json; charset=UTF-8")
 	request.Header.Set("Authorization", "Basic "+appKey)
 
+	printRed("Posting to URL %s with appkey %s\n", url, appKey)
 	client := &http.Client{}
 	response, error := client.Do(request)
 	if error != nil {
