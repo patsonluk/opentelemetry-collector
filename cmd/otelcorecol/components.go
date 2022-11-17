@@ -3,6 +3,7 @@
 package main
 
 import (
+	jaegerexporter "github.com/open-telemetry/opentelemetry-collector-contrib/exporter/jaegerexporter"
 	"go.opentelemetry.io/collector/component"
 	loggingexporter "go.opentelemetry.io/collector/exporter/loggingexporter"
 	otlpexporter "go.opentelemetry.io/collector/exporter/otlpexporter"
@@ -37,6 +38,7 @@ func components() (component.Factories, error) {
 		loggingexporter.NewFactory(),
 		otlpexporter.NewFactory(),
 		otlphttpexporter.NewFactory(),
+		jaegerexporter.NewFactory(),
 	)
 	if err != nil {
 		return component.Factories{}, err
