@@ -205,6 +205,7 @@ func createJsonFromSpan(eventName string, sessionUrl string, span ptrace.Span) m
 
 	startTs := span.StartTimestamp().AsTime().Format("2006-01-02T15:04:05.000Z")
 	endTs := span.EndTimestamp().AsTime().Format("2006-01-02T15:04:05.000Z")
+	duration := span.EndTimestamp().AsTime().UnixMicro() - span.StartTimestamp().AsTime().UnixMicro()
 	attributes := span.Attributes()
 
 	reqJson["event"] = eventJson
@@ -231,6 +232,7 @@ func createJsonFromSpan(eventName string, sessionUrl string, span ptrace.Span) m
 
 	dataMap["start_date"] = startTs
 	dataMap["end_date"] = endTs
+	dataMap["duration_int"] = duration
 	dataMap["trace_id_str"] = span.TraceID().HexString()
 	dataMap["parent_id_str"] = span.ParentSpanID().HexString()
 	dataMap["span_type_str"] = getSpanType(span)
