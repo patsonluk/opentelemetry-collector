@@ -50,3 +50,4 @@ docker run -d --name jaeger \
   jaegertracing/all-in-one:1.39
 ```
 2. Use config [`otel-config-with-jaeger.yaml`](https://github.com/patsonluk/opentelemetry-collector/blob/main/examples/local/otel-config-with-jaeger.yaml) instead to start the collector, now on top of sending data to FS api (hacked loggingexporter), it should also use the jaeger exporter that export data to the all-in-one docker instance from step 1 . `FS_APP_KEY="<your FS API key>" FS_API_HOST="http://127.0.0.1:9071" ./bin/otelcorecol_* --config ./examples/local/otel-config-with-jaeger.yaml`
+3. Trace should now be avaiable in jaeger UI too http://localhost:16686/
