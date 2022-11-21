@@ -20,10 +20,7 @@ To enable OT HTTP request/response header recording, you might need to enable fr
 
 Evetually we will have a proper instrumented front-end page and instrumented backend that send traces to this collector.
 
-For the moment, if we want to quickly test FS sessions and trace events, follow [this](https://github.com/patsonluk/opentelemetry-playground/blob/main/README.md#setup). **BUT**
-1. `Run an OT instrumented node js app` remains the same
-2. Skip `Compile a test agent exporter`, this OT collector is a REPLACEMENT of such agent exporter
-3. `Run an OT instrumented java webapp`, in step 2. Use this shorter command instead `MAVEN_OPTS="-javaagent:../opentelemetry-javaagent.jar" mvn jetty:run-war`
+For the moment, if we want to quickly test FS sessions and trace events, follow [this](https://github.com/patsonluk/opentelemetry-playground/blob/main/README.md#setup)
 
 Goto localhost:1234, click on the only button on the page, the flow will be:
 1. FS is installed for such webapp, so it records the UI actions.
